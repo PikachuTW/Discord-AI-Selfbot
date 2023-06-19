@@ -1,6 +1,4 @@
 .env
 pm2.config.js
-.json
-prompt.txt
-bing_cookies.json
-setting.json
+config.json
+basePrompt.txt

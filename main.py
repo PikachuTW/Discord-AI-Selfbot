@@ -1,75 +1,96 @@
 import json
 import discord
-import os
 from EdgeGPT.EdgeGPT import Chatbot, ConversationStyle
-
-from dotenv import load_dotenv
-load_dotenv()
+import asyncio
 
 # config
-channelList = [ 948178858610405426 ]
+channelList = [ 948178858610405426, 1120013953070796950 ]
+with open('basePrompt.txt', 'r') as file:
+    basePrompt = file.read()
+with open('config.json', 'r') as file:
+    config = json.load(file)
 
-with open('setting.json', 'r') as f:
-    setting = json.load(f)
+#main
+async def run_bot(botConfig):
+    global shutdown
+    shutdown = False
+    prefix = botConfig['prefix']
+    with open('blacklist.json', 'r') as file:
+        blacklist = json.load(file)
+    if botConfig['prefix'] not in blacklist:
+        blacklist[f'{prefix}'] = []
+    client = discord.Client()
 
-if 'users' not in setting:
-    setting['users'] = []
+    @client.event
+    async def on_ready():
+        print(f'{client.user} is ready')
 
-with open('prompt.txt', 'r') as f:
-    prompt = f.read()
-
-client = discord.Client()
-cookies = json.loads(open("./bing_cookies.json", encoding="utf-8").read())
-
-@client.event
-async def on_ready():
-    print(f"{client.user} is ready")
-
-@client.event
-async def on_message(message):
-    success = False
-    if message.author.bot or message.channel.id not in channelList or message.content == "" or message.content.startswith("t!") or message.content.startswith("s?") or (client.user and message.author.id == client.user.id):
-        return
-    if message.content.startswith("l!ping"):
-        await message.reply(content=f"ping: {round(client.latency, 1)}")
-        return
-    if message.content.startswith("l!disable"):
-        if(message.author.id not in setting['users']):
-            setting['users'].append(message.author.id)
-        await message.reply(content=f"我不會再回覆你了 :yum:")
-        with open('setting.json', 'w') as f:
-            json.dump(setting, f)
-        return
-    if message.content.startswith("l!enable"):
-        if(message.author.id in setting['users']):
-            setting['users'].remove(message.author.id)
-        await message.reply(content=f"我總是會陪伴著你 :yum:")
-        with open('setting.json', 'w') as f:
-            json.dump(setting, f)
-        return
-    if message.author.id in setting['users']:
-        return
-    
-    ask = f"{prompt}\n{message.content}"
-    print(f"ask = {message.content}")
-
-    for _ in range(5):
-        if success:
+    @client.event
+    async def on_message(message):
+        global shutdown
+        success = False
+        if message.author.bot or message.channel.id not in channelList or message.content == '' or message.content.startswith('t!') or message.content.startswith('s?') or (client.user and message.author.id == client.user.id):
             return
-        try:   
-            chatBot = await Chatbot.create()
-            response = await chatBot.ask(prompt=ask, conversation_style=ConversationStyle.creative)
-            await chatBot.close()
-            print(json.dumps(response, indent=2))
-            reply = response["item"]["messages"][1]["adaptiveCards"][0]["body"][0]["text"]
-            if "sorry" in reply or "Sorry" in reply or "try" in reply or "mistake" in reply:
-                print("Failed")
+        if message.content.startswith(prefix):
+            message.content = message.content[len(prefix):]
+            if message.content.startswith('ping'):
+                await message.reply(content=f"ping: {round(client.latency, 1)}")
+            elif message.content.startswith("enable"):
+                if(message.author.id in blacklist[f'{prefix}']):
+                    blacklist[f'{prefix}'].remove(message.author.id)
+                await message.reply(content=f"我總是會陪伴著你 :yum:")
+                with open('blacklist.json', 'w') as f:
+                    json.dump(blacklist, f)
+            elif message.content.startswith("disable"):
+                if(message.author.id not in blacklist[f'{prefix}']):
+                    blacklist[f'{prefix}'].append(message.author.id)
+                await message.reply(content=f"我不會再回覆你了 :yum:")
+                with open('blacklist.json', 'w') as f:
+                    json.dump(blacklist, f)
+            elif message.content.startswith("shutdown"):
+                if(message.author.id == 650604337000742934):
+                    await message.reply(content=f"我要去睡覺了 :sleeping:")
+                    shutdown = True
+                else:
+                    await message.reply(content=f"你沒有權限 :yum:")
+            elif message.content.startswith("wakeup"):
+                if(message.author.id == 650604337000742934):
+                    await message.reply(content=f"你好! 我回來了 :smile:")
+                    shutdown = False
+                else:
+                    await message.reply(content=f"你沒有權限 :yum:")
+            return
+        if message.channel.id == channelList[0]:
+            if message.author.id in blacklist[f'{prefix}'] or shutdown:
                 return
-            print("reply = " + reply)
-            success = True
-            await message.reply(content=reply)
-        except Exception as error:
-            print(f"Error {error}")
-            return
         
-client.run(f'{os.getenv("DISCORD_TOKEN")}')
+        ask = f"{botConfig['prompt']}\n\n{basePrompt}\n{message.content}"
+        print(f"ask = {message.content}")
+
+        for _ in range(15): # try 15 times
+            if success:
+                return
+            try:
+                chatBot = await Chatbot.create()
+                response = await chatBot.ask(prompt=ask, conversation_style=ConversationStyle.creative)
+                await chatBot.close()
+                print(json.dumps(response, indent=2))
+                reply = response["item"]["messages"][1]["adaptiveCards"][0]["body"][0]["text"]
+                if "sorry" in reply or "Sorry" in reply or "try" in reply or "mistake" in reply:
+                    print("Failed")
+                    return
+                print("reply = " + reply)
+                success = True
+                await message.reply(content=reply)
+            except Exception as error:
+                print(f"Error {error}")
+                return
+
+    await client.start(botConfig['token'])
+
+loop = asyncio.get_event_loop()
+
+for botConfig in config['botList']:
+    loop.create_task(run_bot(botConfig))
+
+loop.run_forever()
