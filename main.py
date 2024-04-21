@@ -1,22 +1,26 @@
 import json
 import discord
-from EdgeGPT.EdgeGPT import Chatbot, ConversationStyle
+from sydney import SydneyClient
 import asyncio
 import random
 import re
+import os
 
 # config
 channelList = [ 1120013953070796950 ]
-with open('basePrompt.txt', 'r') as file:
+with open('basePrompt.txt', 'r', encoding="utf-8") as file:
     basePrompt = file.read()
-with open('config.json', 'r') as file:
+with open('config.json', 'r', encoding="utf-8") as file:
     config = json.load(file)
+os.environ["BING_COOKIES"] = config['bingCookies']
 
 idList = []
 
 #main
 async def run_bot(botConfig):
     client = discord.Client()
+    sydney = SydneyClient()
+    await sydney.start_conversation()
 
     @client.event
     async def on_ready():
@@ -30,8 +34,8 @@ async def run_bot(botConfig):
         success = False
         if message.author.bot or message.channel.id not in channelList or message.content == '' or message.content.startswith('t!') or message.content.startswith('s?') or (client.user and message.author.id == client.user.id):
             return
-        if message.author.id in idList and random.random() > float(1) / float(len(idList)+1):
-            return
+        if message.author.id in idList:
+            return  # if you want the bot reply to other bots, remove this line
         
         pattern = re.compile(r'<@(\d+)>')
         matches = pattern.findall(message.content)
@@ -49,10 +53,7 @@ async def run_bot(botConfig):
             if success:
                 return
             try:
-                chatBot = await Chatbot.create()
-                response = await chatBot.ask(prompt=ask, conversation_style=ConversationStyle.creative)
-                await chatBot.close()
-                reply = response["item"]["messages"][1]["adaptiveCards"][0]["body"][0]["text"]
+                reply = await sydney.ask(ask, citations=True)
                 if "sorry" in reply or "Sorry" in reply or "try" in reply or "mistake" in reply:
                     print("Failed")
                     return

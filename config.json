@@ -1,10 +1,6 @@
 {
+    "bingCookies": "",
     "botList":[
-        {
-            "token":"",
-            "prefix":"",
-            "prompt":""
-        },
         {
             "token":"",
             "prefix":"",
