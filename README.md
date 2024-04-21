@@ -14,7 +14,7 @@ This is a Discord Selfbot that uses Bing AI Chat (Sdyney) model to auto reply me
 
 ## NOTICE
 
-**Since discord.py-self don't update anymore, you should edit the source code to make it work properly.**
+**Since discord.py-self don't update anymore, the code won't work properly unless you change the source code of discord.py-self.**
 
 *utils.py*
 
