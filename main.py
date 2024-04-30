@@ -6,6 +6,8 @@ import random
 import re
 import os
 
+### IMPORTANT: YOU MUST CHECK THE README FILE BEFORE RUNNING THIS SCRIPT OR IT WON'T WORK ###
+
 # config
 channelList = [ 1120013953070796950 ]
 with open('basePrompt.txt', 'r', encoding="utf-8") as file:
